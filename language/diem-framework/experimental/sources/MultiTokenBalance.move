@@ -1,5 +1,6 @@
 module 0x1::MultiTokenBalance {
     use Std::Errors;
+    use Std::Event;
     use Std::GUID;
     use 0x1::MultiToken::{Self, Token};
     use Std::Option::{Self, Option};
@@ -112,7 +113,22 @@ module 0x1::MultiTokenBalance {
             // Add tokens to `to`'s gallery
             add_to_gallery<TokenType>(to, to_token);
         }
-        // TODO: add event emission
+
+        let tokens = &mut borrow_global_mut<TokenDataCollection<TokenType>>(creator).tokens;
+        let index_opt = index_of_token<TokenType>(tokens, id);
+        assert(Option::is_some(&index_opt), Errors::invalid_argument(EWRONG_TOKEN_ID));
+        let index = Option::extract(&mut index_opt);
+        let transfer_events = &mut Vector::borrow(tokens, index).transfer_events;
+        Event::emit_event(
+            transfer_events,
+            TransferEvent {
+                id: copy id,
+                creator: copy creator,
+                owner: copy owner,
+                recipient: copy to,
+                amount: amount,
+            }
+        )
     }
 
     public fun publish_balance<TokenType: store>(account: &signer) {

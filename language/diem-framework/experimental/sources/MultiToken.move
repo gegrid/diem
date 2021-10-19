@@ -19,6 +19,7 @@ module MultiToken {
         supply: u64,
         /// Parent NFT id
         parent_id: Option<GUID::ID>
+        transfer_events: Event::EventHandle<TransferEvent>,
     }
 
     /// A hot potato wrapper for the token's metadata. Since this wrapper has no `key` or `store`
@@ -45,6 +46,14 @@ module MultiToken {
         id: GUID::ID,
         creator: address,
         content_uri: vector<u8>,
+        amount: u64,
+    }
+
+    struct TransferEvent has copy, drop, store {
+        id: GUID::ID,
+        creator: address,
+        owner: address,
+        recipient: address,
         amount: u64,
     }
 
@@ -191,7 +200,14 @@ module MultiToken {
         let token_data_collection = &mut borrow_global_mut<TokenDataCollection<TokenType>>(Signer::address_of(account)).tokens;
         Vector::push_back(
             token_data_collection,
-            TokenData { metadata: Option::some(metadata), token_id: guid, content_uri, supply: amount, parent_id }
+            TokenData {
+                metadata: Option::some(metadata),
+                token_id: guid,
+                content_uri,
+                supply: amount,
+                parent_id,
+                transfer_events: Event::new_event_handle<TransferEvent>(account),
+            }
         );
         Token { id, balance: amount }
     }
