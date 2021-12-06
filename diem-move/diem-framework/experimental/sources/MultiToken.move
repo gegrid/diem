@@ -17,6 +17,7 @@ module MultiToken {
         /// Pointer to where the content and metadata is stored.
         content_uri: vector<u8>,
         supply: u64,
+        transfer_events: Event::EventHandle<TransferEvent>,
     }
 
     /// A hot potato wrapper for the token's metadata. Since this wrapper has no `key` or `store`
@@ -42,6 +43,14 @@ module MultiToken {
         id: GUID::ID,
         creator: address,
         content_uri: vector<u8>,
+        amount: u64,
+    }
+
+    struct TransferEvent has copy, drop, store {
+        id: GUID::ID,
+        creator: address,
+        owner: address,
+        recipient: address,
         amount: u64,
     }
 
@@ -173,9 +182,52 @@ module MultiToken {
         let token_data_collection = &mut borrow_global_mut<TokenDataCollection<TokenType>>(Signer::address_of(account)).tokens;
         Vector::push_back(
             token_data_collection,
-            TokenData { metadata: Option::some(metadata), token_id: guid, content_uri, supply: amount }
+            TokenData {
+                metadata: Option::some(metadata),
+                token_id: guid,
+                content_uri,
+                supply: amount,
+                transfer_events: Event::new_event_handle<TransferEvent>(account),
+            }
         );
         Token { id, balance: amount }
+    }
+
+    public fun emit_transfer_event<TokenType: store>(
+        creator: address,
+        id: GUID::ID,
+        owner: address, 
+        to: address,
+        amount: u64
+    ) acquires TokenDataCollection {
+        let tokens = &mut borrow_global_mut<TokenDataCollection<TokenType>>(creator).tokens;
+        let index_opt = index_of_token<TokenType>(tokens, &id);
+        assert!(Option::is_some(&index_opt), Errors::invalid_argument(EWRONG_TOKEN_ID));
+        let index = Option::extract(&mut index_opt);
+        let transfer_events = get_transfer_events<TokenType>(Vector::borrow_mut(tokens, index));
+        let transfer_event = create_transfer_event<TokenType>(id, creator,  owner,  to, amount);
+        Event::emit_event(
+            transfer_events,
+            transfer_event
+        );  
+    }
+
+    public fun create_transfer_event<TokenType: store>(
+        id: GUID::ID, creator: address, owner: address, recipient: address, amount: u64,
+    ): TransferEvent {
+        TransferEvent {
+            id: id,
+            creator: creator,
+            owner:  owner,
+            recipient: recipient,
+            amount: amount,
+        }
+    }
+
+    public fun get_transfer_events<TokenType: store>(
+       token_data: &mut TokenData<TokenType>
+    ): &mut Event::EventHandle<TransferEvent> {
+        &mut token_data.transfer_events
     }
 }
 }

@@ -21,6 +21,7 @@ module DiemFramework::MultiTokenBalance {
     const EALREADY_IS_OPERATOR: u64 = 4;
     const ENOT_OPERATOR: u64 = 5;
     const EINVALID_APPROVAL_TARGET: u64 = 6;
+    const EWRONG_TOKEN_ID: u64 = 7;
 
     /// Add a token to the owner's gallery. If there is already a token of the same id in the
     /// gallery, we combine it with the new one and make a token of greater value.
@@ -98,7 +99,6 @@ module DiemFramework::MultiTokenBalance {
         let token = remove_from_gallery<TokenType>(owner, &id);
 
         assert!(amount <= MultiToken::balance(&token), EINVALID_AMOUNT_OF_TRANSFER);
-
         if (amount == MultiToken::balance(&token)) {
             // Owner does not have any token left, so add token to `to`'s gallery.
             add_to_gallery<TokenType>(to, token);
@@ -111,8 +111,8 @@ module DiemFramework::MultiTokenBalance {
 
             // Add tokens to `to`'s gallery
             add_to_gallery<TokenType>(to, to_token);
-        }
-        // TODO: add event emission
+        };
+        MultiToken::emit_transfer_event<TokenType>(creator, id, owner, to, amount)
     }
 
     public fun publish_balance<TokenType: store>(account: &signer) {
